@@ -112,7 +112,7 @@ export class View {
     g.shadowColor = '#000'; g.shadowBlur = 6; g.fillStyle = '#efe6d8';
     g.fillText(text, 128, 24);
     const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
-    const m = new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false });
+    const m = new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: true, depthWrite: false }); // occluded by walls like the body
     const s = new THREE.Sprite(m);
     s.scale.set(1.6, 0.3, 1);
     return s;
@@ -125,7 +125,7 @@ export class View {
     this.chars.delete(id);
   }
   /** Position/animate a character from its (interpolated) view state. */
-  updateChar(c, pos, yaw, spd, dead, hiddenVisible, dt, isLocalThirdPerson) {
+  updateChar(c, pos, yaw, spd, dead, hiddenVisible, dt, isLocalThirdPerson, showLabel = true) {
     const s = c.sprite;
     const height = c.height;
     if (dead) {
@@ -140,7 +140,7 @@ export class View {
     s.material.rotation = 0;
     s.material.color.setRGB(1, 1, 1);
     s.visible = hiddenVisible;
-    c.label.visible = hiddenVisible && !isLocalThirdPerson;
+    c.label.visible = showLabel && hiddenVisible && !isLocalThirdPerson;
     const moved = Math.hypot(pos[0] - c.lastPos[0], pos[2] - c.lastPos[2]);
     c.lastPos = [...pos];
     c.phase += moved * 0.9;

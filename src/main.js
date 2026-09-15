@@ -401,7 +401,9 @@ function updateGame(dt, now) {
     }
     const c = view.chars.get(e.id);
     const hiddenVisible = e.hidden < 0 || (app.spots[e.hidden] && app.spots[e.hidden].open);
-    if (c) view.updateChar(c, e.rpos, e.ryaw, e.spd, e.dead, hiddenVisible, dt, mine && !spotOf(e));
+    // the killer hunts blind: no name tags over survivors (survivors still see each other's, and his)
+    const showLabel = !(amKiller() && e.kind === 'survivor');
+    if (c) view.updateChar(c, e.rpos, e.ryaw, e.spd, e.dead, hiddenVisible, dt, mine && !spotOf(e), showLabel);
     // footsteps: every stride metres of ground covered (CampFootsteps)
     if (!e.dead && e.hidden < 0) {
       const stride = e.kind === 'killer' ? 1.65 : 1.45;
