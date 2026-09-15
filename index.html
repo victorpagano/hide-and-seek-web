@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Hide and Seek</title>
+  <style>
+    :root {
+      --ink: #efe6d8;
+      --dim: #9a8f80;
+      --blood: #c8352c;
+      --safe: #7fd68a;
+      --panel: rgba(10, 8, 12, 0.82);
+      --sa-top: env(safe-area-inset-top, 0px);
+      --sa-bottom: env(safe-area-inset-bottom, 0px);
+      --sa-left: env(safe-area-inset-left, 0px);
+      --sa-right: env(safe-area-inset-right, 0px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #05040a; color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif; touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
+    canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 20; }
+    .screen[hidden] { display: none; }
+    .panel { background: var(--panel); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 22px 26px; width: min(520px, 100%); max-height: 100%; overflow: auto; }
+    h1 { margin: 0 0 4px; font-size: 34px; letter-spacing: 3px; text-transform: uppercase; font-weight: 700; color: var(--blood); }
+    h1 small { display: block; font-size: 12px; letter-spacing: 4px; color: var(--dim); margin-top: 4px; }
+    h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
+    p { margin: 6px 0; line-height: 1.4; }
+    .muted { color: var(--dim); font-size: 13px; }
+    label { display: block; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); margin: 14px 0 4px; }
+    input[type=text] { width: 100%; font-size: 18px; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: #17131c; color: var(--ink); outline: none; text-transform: uppercase; }
+    input#name { text-transform: none; }
+    button { font: inherit; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; padding: 12px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18); background: #221b2a; color: var(--ink); cursor: pointer; }
+    button:hover { background: #2f2538; }
+    button.primary { background: var(--blood); border-color: transparent; color: #fff; }
+    button.primary:hover { background: #dc4a40; }
+    button:disabled { opacity: 0.45; cursor: default; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .row > * { flex: 1 1 auto; }
+    .code { font-size: 42px; letter-spacing: 12px; font-weight: 700; text-align: center; padding: 8px; background: #17131c; border-radius: 8px; margin: 8px 0; }
+    ul.players { list-style: none; padding: 0; margin: 8px 0; }
+    ul.players li { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    ul.players li .role { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
+    ul.players li .role.killer { color: var(--blood); }
+    ul.players li .role.survivor { color: var(--safe); }
+    .roles { display: flex; gap: 10px; margin-top: 14px; }
+    .roles button { flex: 1; padding: 16px 10px; }
+    .roles button.active { outline: 2px solid var(--ink); }
+    .err { color: #ff8b80; font-size: 13px; min-height: 18px; margin-top: 8px; }
+
+    /* HUD */
+    #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+    #hud[hidden] { display: none; }
+    #timer { position: absolute; top: calc(12px + var(--sa-top)); left: 50%; transform: translateX(-50%); text-align: center; }
+    #timer .t { font-size: 34px; font-weight: 700; letter-spacing: 3px; text-shadow: 0 2px 8px #000; }
+    #timer .l { font-size: 11px; letter-spacing: 4px; color: var(--dim); text-transform: uppercase; }
+    #timer.hunt .t { color: #ff9a8f; }
+    #pocket { position: absolute; top: calc(12px + var(--sa-top)); left: calc(14px + var(--sa-left)); font-size: 13px; color: var(--dim); text-shadow: 0 1px 4px #000; max-width: 40%; white-space: pre-line; }
+    #status { position: absolute; top: calc(12px + var(--sa-top)); right: calc(14px + var(--sa-right)); font-size: 13px; text-align: right; color: var(--dim); text-shadow: 0 1px 4px #000; }
+    body.touch #status { top: calc(48px + var(--sa-top)); }
+    #health { position: absolute; bottom: calc(18px + var(--sa-bottom)); left: calc(18px + var(--sa-left)); width: 180px; height: 10px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.25); border-radius: 5px; overflow: hidden; }
+    #health i { display: block; height: 100%; width: 100%; background: var(--safe); transition: width 0.15s; }
+    #health.low i { background: var(--blood); }
+    #prompt { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%); font-size: 18px; text-shadow: 0 2px 6px #000; text-align: center; padding: 6px 14px; background: rgba(0,0,0,0.35); border-radius: 6px; white-space: nowrap; }
+    #prompt:empty { display: none; }
+    #banner { position: absolute; top: 28%; left: 50%; transform: translateX(-50%); font-size: 26px; letter-spacing: 1px; text-align: center; text-shadow: 0 2px 10px #000; opacity: 0; transition: opacity 0.4s; max-width: 90%; }
+    #banner.show { opacity: 1; }
+    #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255,255,255,0.8); box-shadow: 0 0 4px #000; }
+    #vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(120,0,0,0.0) 100%); transition: background 0.3s; }
+    #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+    #dialog { position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%); width: min(720px, 92%); background: var(--panel); border-radius: 10px; padding: 16px 20px; border: 1px solid rgba(255,255,255,0.1); }
+    #dialog b { display: block; font-size: 12px; letter-spacing: 3px; color: var(--blood); margin-bottom: 6px; }
+    #dialog span { font-size: 20px; }
+    #dialog[hidden] { display: none; }
+
+    /* Breath minigame */
+    #breath { position: absolute; left: 50%; bottom: 32%; transform: translateX(-50%); width: min(560px, 92%); }
+    #breath[hidden] { display: none; }
+    #breath .label { text-align: center; font-size: 12px; letter-spacing: 4px; color: #ff9a8f; margin-bottom: 6px; text-shadow: 0 1px 4px #000; }
+    #breath canvas { width: 100%; height: 120px; display: block; border-radius: 8px; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.15); }
+
+    /* Touch controls */
+    #touch { position: fixed; inset: 0; z-index: 12; pointer-events: none; }
+    #touch[hidden] { display: none; }
+    #stick { position: absolute; left: calc(30px + var(--sa-left)); bottom: calc(40px + var(--sa-bottom)); width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); pointer-events: auto; }
+    #stick i { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px; border-radius: 50%; background: rgba(255,255,255,0.28); }
+    #lookzone { position: absolute; right: 0; top: 0; width: 55%; height: 100%; pointer-events: auto; }
+    .tbtn { position: absolute; width: 92px; height: 92px; border-radius: 50%; background: rgba(200,53,44,0.5); border: 2px solid rgba(255,255,255,0.35); color: #fff; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; text-align: center; pointer-events: auto; font-weight: 600; text-shadow: 0 1px 3px #000; }
+    .tbtn:active { background: rgba(200,53,44,0.85); }
+    .tbtn[hidden] { display: none; }
+    #btnUse { right: calc(30px + var(--sa-right)); bottom: calc(60px + var(--sa-bottom)); }
+    #btnAttack { right: calc(140px + var(--sa-right)); bottom: calc(40px + var(--sa-bottom)); }
+    #btnCycle { right: calc(30px + var(--sa-right)); bottom: calc(60px + var(--sa-bottom)); }
+    #btnMenu { position: absolute; top: calc(10px + var(--sa-top)); right: calc(10px + var(--sa-right)); width: 44px; height: 32px; border-radius: 6px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.25); color: #fff; pointer-events: auto; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+
+    #result { z-index: 30; }
+    #result h1 { font-size: 44px; }
+    #result h1.win { color: var(--safe); }
+    #result h1.lose { color: var(--blood); }
+    #connecting { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); z-index: 40; font-size: 18px; letter-spacing: 2px; }
+    #connecting[hidden] { display: none; }
+    kbd { font-family: inherit; background: #2a2230; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
+    .keys { columns: 2; font-size: 13px; color: var(--dim); margin-top: 12px; }
+    .keys p { margin: 3px 0; }
+  </style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+
+  <!-- Main menu -->
+  <div id="menu" class="screen">
+    <div class="panel">
+      <h1>Hide and Seek<small>the house on the hill</small></h1>
+      <p class="muted">Four survivors, one killer, 30 seconds to hide and five minutes until the cops arrive. Empty seats are filled by bots.</p>
+      <label for="name">Your name</label>
+      <input id="name" type="text" maxlength="14" placeholder="Kevin" autocomplete="off" />
+      <div class="row">
+        <button id="btnHost" class="primary">Host a lobby</button>
+      </div>
+      <label for="code">Join with a code</label>
+      <div class="row" style="margin-top:0">
+        <input id="code" type="text" maxlength="4" placeholder="ABCD" autocomplete="off" autocapitalize="characters" style="flex:1 1 120px" />
+        <button id="btnJoin" style="flex:0 0 auto">Join</button>
+      </div>
+      <div class="row">
+        <button id="btnSolo">Play solo (bots only)</button>
+      </div>
+      <div id="menuErr" class="err"></div>
+      <div class="keys">
+        <p><kbd>W A S D</kbd> move &nbsp; <kbd>Mouse</kbd> look</p>
+        <p><kbd>E</kbd> hide / open a hiding spot</p>
+        <p><kbd>LMB</kbd> attack (killer)</p>
+        <p><kbd>Tab</kbd> next camera (spectating)</p>
+        <p><kbd>Esc</kbd> release the mouse</p>
+        <p>iPad: left stick to move, drag right side to look.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lobby -->
+  <div id="lobby" class="screen" hidden>
+    <div class="panel">
+      <h2>Lobby</h2>
+      <div id="lobbyCodeWrap">
+        <p class="muted" style="text-align:center">Friends join with this code</p>
+        <div id="lobbyCode" class="code">----</div>
+        <p class="muted" id="lobbyUrl" style="text-align:center; font-size:12px"></p>
+      </div>
+      <ul id="players" class="players"></ul>
+      <p class="muted">Pick a side. The killer seat goes to one player; everyone else survives. Empty seats become bots.</p>
+      <div class="roles">
+        <button id="roleSurvivor">Survivor</button>
+        <button id="roleKiller">Killer</button>
+      </div>
+      <div class="row">
+        <button id="btnStart" class="primary">Start match</button>
+        <button id="btnLeave">Leave</button>
+      </div>
+      <div id="lobbyErr" class="err"></div>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" hidden>
+    <div id="vignette"></div>
+    <div id="timer"><div class="t">0:30</div><div class="l">hide</div></div>
+    <div id="pocket"></div>
+    <div id="status"></div>
+    <div id="health"><i></i></div>
+    <div id="crosshair" hidden></div>
+    <div id="prompt"></div>
+    <div id="banner"></div>
+    <div id="dialog" hidden><b>FINAL GIRL</b><span>He's coming! Quick, we need to hide and wait for rescue!</span></div>
+    <div id="breath" hidden><div class="label">HOLD YOUR BREATH</div><canvas width="560" height="120"></canvas></div>
+    <div id="flash"></div>
+  </div>
+
+  <!-- Touch controls -->
+  <div id="touch" hidden>
+    <div id="stick"><i></i></div>
+    <div id="lookzone"></div>
+    <div id="btnUse" class="tbtn">Hide</div>
+    <div id="btnAttack" class="tbtn" hidden>Attack</div>
+    <div id="btnCycle" class="tbtn" hidden>Next</div>
+    <div id="btnMenu">≡</div>
+  </div>
+
+  <!-- Result -->
+  <div id="result" class="screen" hidden>
+    <div class="panel" style="text-align:center">
+      <h1 id="resultTitle">RESCUED</h1>
+      <p id="resultTally"></p>
+      <div class="row">
+        <button id="btnAgain" class="primary">Play again</button>
+        <button id="btnQuit">Menu</button>
+      </div>
+      <p id="resultWait" class="muted"></p>
+    </div>
+  </div>
+
+  <div id="connecting" hidden>CONNECTING…</div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
