@@ -99,33 +99,19 @@ export class View {
     const height = e.sprite === 'killer' ? 2.0 : 1.78;
     sprite.scale.set(height * (288 / 512), height, 1);
     this.scene.add(sprite);
-    const label = this.makeLabel(e.name);
-    this.scene.add(label);
-    const c = { e, sprite, frames, height, phase: 0, bob: 0, label, lastPos: [...e.pos] };
+    // no name tags: finding out who is where is the whole game
+    const c = { e, sprite, frames, height, phase: 0, bob: 0, lastPos: [...e.pos] };
     this.chars.set(e.id, c);
     return c;
-  }
-  makeLabel(text) {
-    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 48;
-    const g = cv.getContext('2d');
-    g.font = '600 26px "Segoe UI", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.shadowColor = '#000'; g.shadowBlur = 6; g.fillStyle = '#efe6d8';
-    g.fillText(text, 128, 24);
-    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
-    const m = new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: true, depthWrite: false }); // occluded by walls like the body
-    const s = new THREE.Sprite(m);
-    s.scale.set(1.6, 0.3, 1);
-    return s;
   }
   removeChar(id) {
     const c = this.chars.get(id);
     if (!c) return;
     this.scene.remove(c.sprite);
-    this.scene.remove(c.label);
     this.chars.delete(id);
   }
   /** Position/animate a character from its (interpolated) view state. */
-  updateChar(c, pos, yaw, spd, dead, hiddenVisible, dt, isLocalThirdPerson, showLabel = true) {
+  updateChar(c, pos, yaw, spd, dead, hiddenVisible, dt, isLocalThirdPerson) {
     const s = c.sprite;
     const height = c.height;
     if (dead) {
@@ -134,19 +120,16 @@ export class View {
       s.material.color.setRGB(0.45, 0.2, 0.2);
       s.position.set(pos[0], pos[1] + 0.45, pos[2]);
       s.scale.set(height * (288 / 512), height, 1);
-      c.label.visible = false;
       return;
     }
     s.material.rotation = 0;
     s.material.color.setRGB(1, 1, 1);
     s.visible = hiddenVisible;
-    c.label.visible = showLabel && hiddenVisible && !isLocalThirdPerson;
     const moved = Math.hypot(pos[0] - c.lastPos[0], pos[2] - c.lastPos[2]);
     c.lastPos = [...pos];
     c.phase += moved * 0.9;
     const bob = Math.abs(Math.sin(c.phase * Math.PI)) * 0.05 * clamp(spd * 2, 0, 1);
     s.position.set(pos[0], pos[1] + height / 2 + bob, pos[2]);
-    c.label.position.set(pos[0], pos[1] + height + 0.2, pos[2]);
     if (c.frames.length > 1) {
       const frame = spd > 0.05 ? Math.floor((c.phase * 0.55) % c.frames.length) : 0;
       const tex = this.texture(c.frames[frame]);
