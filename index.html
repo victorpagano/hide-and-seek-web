@@ -65,6 +65,13 @@
     #health { position: absolute; bottom: calc(18px + var(--sa-bottom)); left: calc(18px + var(--sa-left)); width: 180px; height: 10px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.25); border-radius: 5px; overflow: hidden; }
     #health i { display: block; height: 100%; width: 100%; background: var(--safe); transition: width 0.15s; }
     #health.low i { background: var(--blood); }
+    #mic { position: absolute; bottom: calc(36px + var(--sa-bottom)); left: calc(18px + var(--sa-left)); width: 180px; height: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.25); border-radius: 4px; }
+    #mic i { display: block; height: 100%; width: 0; background: #7fa8d6; border-radius: 4px; transition: width 0.05s; }
+    #mic.armed i { background: #d6c27f; }
+    #mic.loud i { background: var(--blood); }
+    #mic b { position: absolute; top: -3px; bottom: -3px; left: 40%; width: 2px; background: rgba(255,120,110,0.9); }
+    #mic span { position: absolute; left: 100%; top: -4px; margin-left: 8px; font-size: 11px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
+    #mic[hidden] { display: none; }
     #prompt { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%); font-size: 18px; text-shadow: 0 2px 6px #000; text-align: center; padding: 6px 14px; background: rgba(0,0,0,0.35); border-radius: 6px; white-space: nowrap; }
     #prompt:empty { display: none; }
     #banner { position: absolute; top: 28%; left: 50%; transform: translateX(-50%); font-size: 26px; letter-spacing: 1px; text-align: center; text-shadow: 0 2px 10px #000; opacity: 0; transition: opacity 0.4s; max-width: 90%; }
@@ -128,7 +135,9 @@
       </div>
       <div class="row">
         <button id="btnSolo">Play solo (bots only)</button>
+        <button id="btnMicMenu">🎤 Enable microphone</button>
       </div>
+      <p class="muted">With the microphone on, real noise while you hide gives the killer a clue. Allow it when the browser asks.</p>
       <div id="menuErr" class="err"></div>
       <div class="keys">
         <p><kbd>W A S D</kbd> move &nbsp; <kbd>Mouse</kbd> look</p>
@@ -160,6 +169,7 @@
         <button id="btnStart" class="primary">Start match</button>
         <button id="btnLeave">Leave</button>
       </div>
+      <div class="row"><button id="btnMicLobby">🎤 Enable microphone</button></div>
       <div id="lobbyErr" class="err"></div>
     </div>
   </div>
@@ -171,6 +181,7 @@
     <div id="pocket"></div>
     <div id="status"></div>
     <div id="health"><i></i></div>
+    <div id="mic" hidden><i></i><b></b><span>mic</span></div>
     <div id="crosshair" hidden></div>
     <div id="prompt"></div>
     <div id="banner"></div>

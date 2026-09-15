@@ -203,6 +203,14 @@ export class Sim {
       }
       case 'attack': if (e.kind === 'killer' && !e.frozen) this.killerAttack(e); break;
       case 'gasp': if (e.kind === 'survivor' && e.hidden >= 0) this.noise(e.pos, 1, 'a gasp', e); break;
+      case 'noise': {
+        // microphone clue: one per 2 s per player, loudness clamped to what MicrophoneNoise emits
+        if (e.kind !== 'survivor' || e.escaped || this.phase !== 'hunt') return;
+        if (this.time < (e.nextMicClue || 0)) return;
+        e.nextMicClue = this.time + 2;
+        this.noise(e.pos, clamp(+msg.loudness || 0.7, 0.5, 1.4), 'breathing', e);
+        break;
+      }
     }
   }
 

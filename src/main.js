@@ -9,6 +9,7 @@ import { NavGrid } from './nav.js';
 import { Sim } from './game.js';
 import { HostNet, ClientNet, randomCode } from './net.js';
 import { BreathMinigame } from './minigame.js';
+import { Mic } from './mic.js';
 import { dist2d, dist3d, clamp, lerp, lerpAngle, wrapAngle, forward, yawTo, isTouch } from './util.js';
 
 const $ = (id) => document.getElementById(id);
@@ -30,6 +31,25 @@ const app = {
   spectateOnly: false, dialogUntil: 0,
 };
 window.app = app; window.plan = plan; window.view = view; window.input = input;
+const mic = new Mic(audio);
+mic.onClue = (loudness) => { send({ t: 'act', a: 'noise', loudness }); showBanner('Shh! He can hear you.', 2); };
+function updateMicMeter() {
+  const el = $('mic');
+  const show = mic.enabled && app.mode === 'game' && !app.spectate.active && me() && me().kind === 'survivor' && !me().dead;
+  el.hidden = !show;
+  if (!show) return;
+  el.querySelector('i').style.width = (mic.level * 100).toFixed(0) + '%';
+  el.classList.toggle('loud', mic.isLoud && mic.armed);
+  el.classList.toggle('armed', mic.armed);
+}
+async function toggleMic() {
+  if (mic.enabled) { mic.disable(); }
+  else { const ok = await mic.enable(); if (!ok) { $('lobbyErr').textContent = mic.error || ''; $('menuErr').textContent = mic.error || ''; } }
+  renderMicButtons();
+}
+function renderMicButtons() {
+  for (const id of ['btnMicMenu', 'btnMicLobby']) { const b = $(id); if (b) b.textContent = mic.enabled ? '🎤 Microphone on' : '🎤 Enable microphone'; }
+}
 app.minigame = new BreathMinigame(input, (failed) => { if (failed) { send({ t: 'act', a: 'gasp' }); audio.gasp(); showBanner('You gasped!'); } });
 
 // ------------------------------------------------------------------ UI helpers
@@ -149,7 +169,7 @@ function onEvent(ev) {
     case 'killerHeard':
       if (amKiller()) { app.clue = 'You heard ' + ev.label + (ev.room ? ' from the ' + ev.room.toLowerCase() : ''); app.clueUntil = performance.now() + 6000; audio.breath(0.5); }
       break;
-    case 'hide': if (m && ev.id === m.id) audio.door(); break;
+    case 'hide': if (m && ev.id === m.id) { audio.door(); app.breathTimer = 0; } break;
     case 'unhide': if (m && ev.id === m.id) audio.door(); break;
     case 'rescueArrived': showBanner('Run for the car!', 4); break;
     case 'result': showResult(ev); break;
@@ -250,9 +270,14 @@ function leave() {
 }
 // iOS keeps the AudioContext suspended until a gesture on the page itself.
 for (const ev of ['touchstart', 'pointerdown', 'keydown']) document.addEventListener(ev, () => audio.unlock(), { passive: true });
-$('btnHost').onclick = () => { audio.unlock(); hostLobby(false); };
-$('btnSolo').onclick = () => { audio.unlock(); hostLobby(true); };
-$('btnJoin').onclick = () => { audio.unlock(); joinLobby(); };
+$('btnMicMenu').onclick = toggleMic;
+$('btnMicLobby').onclick = toggleMic;
+renderMicButtons();
+// a remembered "mic on" is re-requested from these taps (iOS only grants it inside a gesture)
+const micIfWanted = () => { try { if (localStorage.getItem('hs-mic') === '1' && !mic.enabled) mic.enable().then(renderMicButtons); } catch {} };
+$('btnHost').onclick = () => { audio.unlock(); micIfWanted(); hostLobby(false); };
+$('btnSolo').onclick = () => { audio.unlock(); micIfWanted(); hostLobby(true); };
+$('btnJoin').onclick = () => { audio.unlock(); micIfWanted(); joinLobby(); };
 $('btnLeave').onclick = leave;
 $('btnQuit').onclick = leave;
 $('roleSurvivor').onclick = () => send({ t: 'role', role: 'survivor' });
@@ -404,11 +429,16 @@ function updateGame(dt, now) {
   if (m && !meDead && m.kind === 'survivor' && hunting && spotOf(m) && k) {
     const d = dist3d(m.pos, k.pos);
     audio.heartbeat(dt, clamp(1 - d / 16, 0, 1));
-    if (d < 14 && !app.minigame.active) {
+    // every 10 s of hiding during the hunt (Unity BreathMinigame.interval), wherever he is
+    if (!app.minigame.active) {
       app.breathTimer += dt;
       if (app.breathTimer >= 10) { app.breathTimer = 0; app.minigame.start(); }
     }
-  } else { app.breathTimer = 5; if (app.minigame.active) app.minigame.finish(false); if (m && k && hunting && !meDead && m.kind === 'survivor') audio.heartbeat(dt, clamp(1 - dist3d(m.pos, k.pos) / 10, 0, 1)); }
+  } else { app.breathTimer = 4; if (app.minigame.active) app.minigame.finish(false); if (m && k && hunting && !meDead && m.kind === 'survivor') audio.heartbeat(dt, clamp(1 - dist3d(m.pos, k.pos) / 10, 0, 1)); }
+  // ---- microphone (MicrophoneNoise): loud frames become clues while the hunt is on
+  mic.armed = !!(m && !meDead && m.kind === 'survivor' && hunting && !m.escaped);
+  mic.update(dt, now);
+  updateMicMeter();
 
   // ---- audio listener follows the camera
   const cp = view.camera.position, cf = view.camera.getWorldDirection(new THREE.Vector3());
